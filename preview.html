@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Boeren Bridge — Score Progress</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg0:#070914;
+      --bg1:#0b1026;
+      --card:#0f1633cc;
+      --stroke:#ffffff14;
+      --text:#eaf0ff;
+      --muted:#b8c0dd;
+      --shadow: 0 30px 80px rgba(0,0,0,.45);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 15% 10%, #4d2bff33, transparent 55%),
+        radial-gradient(900px 500px at 90% 20%, #00e5ff22, transparent 55%),
+        radial-gradient(800px 500px at 60% 85%, #ff2bd633, transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      overflow-x:hidden;
+    }
+
+    /* subtle animated noise overlay */
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E");
+      mix-blend-mode:overlay;
+      opacity:.18;
+      animation: drift 10s linear infinite;
+    }
+    @keyframes drift{
+      from{transform:translate3d(0,0,0)}
+      to{transform:translate3d(-80px,60px,0)}
+    }
+
+    .wrap{
+      width:min(1180px, 100%);
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:18px;
+    }
+
+    @media (max-width: 980px){
+      .wrap{grid-template-columns:1fr}
+    }
+
+    .card{
+      background:linear-gradient(180deg, #0f1633cc, #0b1129cc);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      position:relative;
+      overflow:hidden;
+    }
+    .card::after{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      border-radius:24px;
+      background: conic-gradient(from 180deg at 50% 50%,
+        #00e5ff55, #4d2bff55, #ff2bd655, #00e5ff55);
+      filter: blur(26px);
+      opacity:.35;
+      z-index:0;
+    }
+
+    .header{
+      position:relative;
+      z-index:1;
+      padding:22px 22px 14px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:0;
+    }
+    .title h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:-.02em;
+      font-weight:800;
+      line-height:1.05;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .title p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.3;
+    }
+
+    .pills{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .pill{
+      border:1px solid var(--stroke);
+      background: #0b1026aa;
+      padding:9px 12px;
+      border-radius:999px;
+      font-size:12px;
+      color:#d7e1ff;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      box-shadow:0 0 18px currentColor;
+    }
+
+    .canvas-wrap{
+      position:relative;
+      z-index:1;
+      padding: 0 18px 18px;
+    }
+    .chart-shell{
+      border-radius:20px;
+      border:1px solid var(--stroke);
+      background: radial-gradient(900px 500px at 35% 15%, #ffffff08, transparent 60%),
+                  linear-gradient(180deg, #0b1026cc, #070a18cc);
+      padding:16px;
+    }
+
+    /* right panel */
+    .side{
+      padding:22px;
+      position:relative;
+      z-index:1;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .side h2{
+      margin:0;
+      font-size:14px;
+      color:#dbe6ff;
+      letter-spacing:.02em;
+      font-weight:800;
+      text-transform:uppercase;
+    }
+    .leaderboard{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 12px;
+      border-radius:16px;
+      border:1px solid var(--stroke);
+      background: linear-gradient(180deg, #0b1026cc, #0a1024cc);
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    .row:hover{
+      transform: translateY(-2px);
+      border-color:#ffffff22;
+    }
+    .left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .badge{
+      width:34px;height:34px;border-radius:12px;
+      display:grid;place-items:center;
+      font-weight:800;
+      border:1px solid var(--stroke);
+      background:#0b1026aa;
+      color:#eaf0ff;
+      flex:0 0 auto;
+    }
+    .name{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width:0;
+    }
+    .name b{
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .name span{
+      font-size:11px;
+      color:var(--muted);
+    }
+    .score{
+      font-weight:800;
+      font-size:14px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+    }
+    .score i{
+      width:10px;height:10px;border-radius:999px;
+      box-shadow:0 0 18px currentColor;
+    }
+
+    .hint{
+      margin-top:auto;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+      border-top:1px solid var(--stroke);
+      padding-top:12px;
+    }
+
+    .kbd{
+      display:inline-block;
+      padding:2px 7px;
+      border-radius:8px;
+      border:1px solid var(--stroke);
+      background:#0b1026aa;
+      color:#dfe7ff;
+      font-weight:600;
+      font-size:11px;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <div class="header">
+        <div class="title">
+          <h1>Boeren Bridge — Score Progress</h1>
+          <p>Neon timeline of total score per round (1–12). Hover to inspect points.</p>
+        </div>
+        <div class="pills" id="legendPills"></div>
+      </div>
+
+      <div class="canvas-wrap">
+        <div class="chart-shell">
+          <canvas id="chart" height="360"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="side">
+        <h2>Final leaderboard</h2>
+        <div class="leaderboard" id="leaderboard"></div>
+        <div class="hint">
+          Tip: click a name in the leaderboard to toggle that player on/off.
+          Use <span class="kbd">Shift</span> + click to solo a player.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const rounds = [1,2,3,4,5,6,7,8,9,10,11,12];
+
+    const dataByPlayer = {
+      "Pieter":   [10,20,30,40,53,66,76,92,89,105,115,112],
+      "Tijmen":   [10,23,33,43,40,53,66,79,76,73,83,80],
+      "Kitty":    [10,20,30,43,56,69,79,92,105,115,125,135],
+      "Julianne": [-3,7,17,30,43,40,53,63,73,86,96,106],
+      "Philipp":  [10,20,33,43,53,66,63,60,70,80,77,87],
+      "Vincent":  [10,20,17,14,24,34,31,41,51,48,58,68],
+      "Ingmar":   [10,7,17,33,43,37,34,47,60,57,70,80],
+      "Ries":     [10,23,36,46,59,72,82,79,76,86,83,80]
+    };
+
+    // Designer-ish neon palette (no need to hand-tune per line later)
+    const colors = [
+      "#00E5FF", "#4D2BFF", "#FF2BD6", "#7CFF6B",
+      "#FFB020", "#00FFA8", "#FF4D4D", "#B9A6FF"
+    ];
+
+    const players = Object.keys(dataByPlayer);
+
+    // Canvas glow plugin (adds a subtle neon shadow to lines + points)
+    const neonGlow = {
+      id: 'neonGlow',
+      beforeDatasetDraw(chart, args, pluginOptions){
+        const {ctx} = chart;
+        ctx.save();
+        ctx.shadowColor = pluginOptions.shadowColor || 'rgba(255,255,255,.35)';
+        ctx.shadowBlur = pluginOptions.shadowBlur ?? 18;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      },
+      afterDatasetDraw(chart){
+        chart.ctx.restore();
+      }
+    };
+
+    // Build datasets with gradients (computed after chart area exists)
+    function makeDatasets(chart){
+      const {ctx, chartArea} = chart;
+      const datasets = players.map((name, i) => {
+        const c = colors[i % colors.length];
+        let fillGradient = c;
+
+        if (chartArea){
+          const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0, c + "55");
+          g.addColorStop(0.55, c + "15");
+          g.addColorStop(1, c + "00");
+          fillGradient = g;
+        }
+
+        return {
+          label: name,
+          data: dataByPlayer[name],
+          borderColor: c,
+          backgroundColor: fillGradient,
+          fill: true,
+          borderWidth: 3,
+          tension: 0.36,
+          pointRadius: 2.8,
+          pointHoverRadius: 7,
+          pointBorderWidth: 0,
+          pointBackgroundColor: c,
+          pointHoverBackgroundColor: "#ffffff",
+          pointHoverBorderColor: c,
+        };
+      });
+
+      return datasets;
+    }
+
+    // Create chart
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: rounds,
+        datasets: [] // filled on first resize
+      },
+      plugins: [neonGlow],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 1100,
+          easing: 'easeOutQuart'
+        },
+        interaction: {
+          mode: 'nearest',
+          intersect: false
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "rgba(9,12,28,.92)",
+            borderColor: "rgba(255,255,255,.12)",
+            borderWidth: 1,
+            titleColor: "#eaf0ff",
+            bodyColor: "#cfd8ff",
+            padding: 12,
+            displayColors: true,
+            callbacks: {
+              title: (items) => `Round ${items[0].label}`,
+              label: (item) => ` ${item.dataset.label}: ${item.formattedValue}`
+            }
+          },
+          neonGlow: {
+            shadowColor: "rgba(255,255,255,.28)",
+            shadowBlur: 20
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(255,255,255,.06)" },
+            border: { color: "rgba(255,255,255,.10)" },
+            ticks: { color: "rgba(234,240,255,.82)", font: { weight: 600 } },
+            title: {
+              display: true,
+              text: "Round",
+              color: "rgba(184,192,221,.95)",
+              font: { weight: 800 }
+            }
+          },
+          y: {
+            grid: { color: "rgba(255,255,255,.06)" },
+            border: { color: "rgba(255,255,255,.10)" },
+            ticks: { color: "rgba(234,240,255,.82)", font: { weight: 600 } },
+            title: {
+              display: true,
+              text: "Total score",
+              color: "rgba(184,192,221,.95)",
+              font: { weight: 800 }
+            }
+          }
+        }
+      }
+    });
+
+    // Ensure gradients update once chartArea exists
+    function refreshDatasets(){
+      chart.data.datasets = makeDatasets(chart);
+      chart.update();
+      renderLegendPills();
+      renderLeaderboard();
+    }
+
+    // toggle dataset helpers
+    function setVisible(index, visible){
+      chart.setDatasetVisibility(index, visible);
+      chart.update();
+      renderLegendPills();
+      renderLeaderboard();
+    }
+    function solo(index){
+      players.forEach((_, i) => chart.setDatasetVisibility(i, i === index));
+      chart.update();
+      renderLegendPills();
+      renderLeaderboard();
+    }
+
+    // Legend pills at top
+    function renderLegendPills(){
+      const el = document.getElementById('legendPills');
+      el.innerHTML = "";
+      players.forEach((name, i) => {
+        const visible = chart.isDatasetVisible(i);
+        const c = colors[i % colors.length];
+
+        const pill = document.createElement('div');
+        pill.className = "pill";
+        pill.style.opacity = visible ? "1" : ".45";
+        pill.style.cursor = "pointer";
+        pill.title = visible ? "Click to hide" : "Click to show";
+
+        const dot = document.createElement('span');
+        dot.className = "dot";
+        dot.style.color = c;
+        dot.style.background = c;
+
+        const text = document.createElement('span');
+        text.textContent = name;
+
+        pill.appendChild(dot);
+        pill.appendChild(text);
+
+        pill.addEventListener('click', (e) => {
+          if (e.shiftKey) return solo(i);
+          setVisible(i, !visible);
+        });
+
+        el.appendChild(pill);
+      });
+    }
+
+    // Leaderboard (final scores)
+    function renderLeaderboard(){
+      const el = document.getElementById('leaderboard');
+      const finals = players.map((name, i) => ({
+        name,
+        i,
+        color: colors[i % colors.length],
+        final: dataByPlayer[name][dataByPlayer[name].length - 1]
+      })).sort((a,b) => b.final - a.final);
+
+      el.innerHTML = "";
+      finals.forEach((p, rankIndex) => {
+        const visible = chart.isDatasetVisible(p.i);
+
+        const row = document.createElement('div');
+        row.className = "row";
+        row.style.opacity = visible ? "1" : ".45";
+        row.style.cursor = "pointer";
+
+        const left = document.createElement('div');
+        left.className = "left";
+
+        const badge = document.createElement('div');
+        badge.className = "badge";
+        badge.textContent = String(rankIndex + 1);
+
+        const name = document.createElement('div');
+        name.className = "name";
+        const b = document.createElement('b');
+        b.textContent = p.name;
+        const s = document.createElement('span');
+        s.textContent = visible ? "Visible" : "Hidden";
+        name.appendChild(b);
+        name.appendChild(s);
+
+        left.appendChild(badge);
+        left.appendChild(name);
+
+        const score = document.createElement('div');
+        score.className = "score";
+        score.style.color = p.color;
+        const dot = document.createElement('i');
+        dot.style.background = p.color;
+        score.appendChild(dot);
+        const val = document.createElement('span');
+        val.style.color = "#eaf0ff";
+        val.textContent = p.final;
+        score.appendChild(val);
+
+        row.appendChild(left);
+        row.appendChild(score);
+
+        row.addEventListener('click', (e) => {
+          if (e.shiftKey) return solo(p.i);
+          setVisible(p.i, !visible);
+        });
+
+        el.appendChild(row);
+      });
+    }
+
+    // Initial render after first layout pass
+    setTimeout(refreshDatasets, 0);
+
+    // Recompute gradients on resize (chartArea changes)
+    const ro = new ResizeObserver(() => refreshDatasets());
+    ro.observe(document.querySelector('.chart-shell'));
+  </script>
+</body>
+</html>
